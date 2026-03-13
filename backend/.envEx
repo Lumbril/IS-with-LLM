@@ -1,13 +1,33 @@
-POSTGRES_USER=
-POSTGRES_PASSWORD=
-POSTGRES_HOST=
-POSTGRES_PORT=
-POSTGRES_DB=
+# -----------------------------
+# Настройки базы данных PostgreSQL
+# -----------------------------
+# Имя пользователя для подключения к PostgreSQL
+POSTGRES_USER=admin
+# Пароль для пользователя PostgreSQL
+POSTGRES_PASSWORD=admin
+# Хост базы данных. В Docker Compose это имя сервиса postgres (db)
+POSTGRES_HOST=db
+# Порт, на котором слушает PostgreSQL
+POSTGRES_PORT=5432
+# Название базы данных, которую создаем/используем
+POSTGRES_DB=is
 
-OPENROUTER_API_KEY=
-OPENROUTER_MODEL=
+# -----------------------------
+# Настройки LLM (OpenRouter / OpenAI)
+# -----------------------------
+# API ключ для доступа к OpenRouter или OpenAI
+OPENROUTER_API_KEY=your_key_here
+# Модель LLM для генерации ответов
+OPENROUTER_MODEL=openrouter/hunter-alpha
 
-JWT_SECRET_KEY=
-JWT_ALGORITHM=
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=
-JWT_REFRESH_TOKEN_EXPIRE_DAYS=
+# -----------------------------
+# Настройки JWT для авторизации
+# -----------------------------
+# Секретный ключ для подписи JWT токенов
+JWT_SECRET_KEY=supersecretkey
+# Алгоритм шифрования JWT
+JWT_ALGORITHM=HS256
+# Время жизни access токена в минутах
+JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
+# Время жизни refresh токена в днях
+JWT_REFRESH_TOKEN_EXPIRE_DAYS=30
