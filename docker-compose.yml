@@ -9,8 +9,6 @@ services:
       - ./backend/.env
     ports:
       - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
 
   backend:
     build:
@@ -36,9 +34,11 @@ services:
       - "5050:80"
     depends_on:
       - db
-    volumes:
-      - pgadmin_data:/var/lib/pgadmin
 
-volumes:
-  db_data:
-  pgadmin_data:
+  demo-init:
+    build:
+      context: ./demo
+    container_name: demo_init
+    depends_on:
+      - backend
+    restart: "no"
