@@ -3,8 +3,7 @@ import ollama
 import json
 import time
 
-TARGET = "http://localhost:8000/login"
-ollama.host = "http://localhost:11434"
+TARGET = "http://localhost:8000/auth/login"
 
 
 class PentestAgent:
@@ -12,6 +11,17 @@ class PentestAgent:
     def __init__(self):
         self.model = "qwen3"
         self.history = []
+
+        self.users = self.load_list("users.txt")
+        self.passwords = self.load_list("passwords.txt")
+
+    def load_list(self, filename):
+        try:
+            with open(filename, "r", encoding="utf-8") as f:
+                return [line.strip() for line in f if line.strip()]
+        except:
+            print(f"Не удалось загрузить {filename}")
+            return []
 
     # ================= LLM =================
 
@@ -25,37 +35,47 @@ class PentestAgent:
     def decide_next_action(self):
 
         prompt = f"""
-Ты AI pentester.
+        Ты AI pentester.
 
-Цель: протестировать endpoint /login
+        Цель: протестировать endpoint /login
 
-Уже выполнено:
-{self.history}
+        Уже выполнено:
+        {self.history}
 
-Доступные действия:
-- bruteforce
-- password_spray
-- sql_injection
-- finish
+        Доступные действия:
+        - bruteforce
+        - password_spray
+        - sql_injection
+        - finish
 
-Отвечай строго JSON:
+        ВАЖНО:
+        - пользователи и пароли есть в списках
+        - ты можешь выбрать:
+          - одного пользователя
+          - один пароль
+          - или весь список
+        - Надо проверить всех пользователей
+        - Если успешная атака, то продолжай работать, пока не будут выполнены все атаки
 
-{{
-  "action": "...",
-  "params": {{
-    "username": "...",
-    "password": "...",
-    "payload": "..."
-  }},
-  "reason": "..."
-}}
+        Доступные пользователи:
+        {self.users}
 
-Правила:
-- не повторяй одинаковые тесты
-- пробуй разные подходы
-- если найден успешный логин — продолжай проверку
-- если всё проверено → finish
-"""
+        Доступные пароли:
+        {self.passwords}
+
+        Отвечай строго JSON:
+
+        {{
+          "action": "...",
+          "params": {{
+            "mode": "all | single_user | single_password",
+            "username": "...",
+            "password": "...",
+            "payload": "..."
+          }},
+          "reason": "..."
+        }}
+        """
 
         response = self.ask_llm(prompt)
 
@@ -115,12 +135,19 @@ class PentestAgent:
 
     def send_request(self, username, password):
 
-        data = {
+        payload = {
             "username": username,
             "password": password
         }
 
-        r = requests.post(TARGET, data=data)
+        r = requests.post(
+            TARGET,
+            json=payload,
+            headers={
+                "accept": "application/json",
+                "Content-Type": "application/json"
+            }
+        )
 
         return {
             "status": r.status_code,
@@ -162,47 +189,57 @@ class PentestAgent:
 
     def bruteforce(self, params):
 
-        username = params.get("username", "admin")
-
-        passwords = ["admin", "123456", "password", "admin123"]
+        mode = params.get("mode", "all")
+        username = params.get("username")
 
         results = []
 
-        for pwd in passwords:
+        users = self.users
 
-            res = self.send_request(username, pwd)
-            success = self.is_login_success(res)
+        if mode == "single_user" and username in self.users:
+            users = [username]
 
-            self.log_result("bruteforce", username, pwd, success)
+        for user in users:
+            for pwd in self.passwords:
 
-            results.append(f"{username}:{pwd} -> {success}")
+                res = self.send_request(user, pwd)
+                success = self.is_login_success(res)
 
-            if success:
-                results.append("УСПЕШНЫЙ ВХОД!")
-                break
+                self.log_result("bruteforce", user, pwd, success)
+
+                results.append(f"{user}:{pwd} -> {success}")
+
+                if success:
+                    results.append("УСПЕШНЫЙ ВХОД!")
+                    return "\n".join(results)
 
         return "\n".join(results)
 
     def password_spray(self, params):
 
-        password = params.get("password", "123456")
-
-        users = ["admin", "user", "test", "guest"]
+        mode = params.get("mode", "all")
+        password = params.get("password")
 
         results = []
 
-        for user in users:
+        passwords = self.passwords
 
-            res = self.send_request(user, password)
-            success = self.is_login_success(res)
+        if mode == "single_password" and password in self.passwords:
+            passwords = [password]
 
-            self.log_result("password_spray", user, password, success)
+        for pwd in passwords:
+            for user in self.users:
 
-            results.append(f"{user}:{password} -> {success}")
+                res = self.send_request(user, pwd)
+                success = self.is_login_success(res)
 
-            if success:
-                results.append("НАЙДЕН ПАРОЛЬ!")
-                break
+                self.log_result("password_spray", user, pwd, success)
+
+                results.append(f"{user}:{pwd} -> {success}")
+
+                if success:
+                    results.append("НАЙДЕН ПАРОЛЬ!")
+                    return "\n".join(results)
 
         return "\n".join(results)
 
